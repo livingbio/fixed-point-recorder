@@ -107,11 +107,39 @@ When you see a `CassetteMismatchError`, the error message includes a hint:
 
 > Run with `--fixedpoint=rewrite` to re-record
 
+## Comparison
+
+### vs VCR.py / responses / requests-mock
+
+VCR-style tools record at the **HTTP layer** — every header, cookie, content-type, and redirect ends up in your cassette. This means:
+
+* Cassettes are bloated with details you don't care about (auth tokens, timestamps, trace IDs).
+* An unrelated header change breaks your tests even though the actual data hasn't changed.
+* You're testing HTTP plumbing, not your application logic.
+
+Fixed-Point records at the **function layer**. You choose exactly which functions to pin down with `@recordable`, and the cassette only contains the args and return values — nothing more.
+
+### vs unittest.mock / monkeypatch
+
+Mocking is powerful, but it comes at a cost:
+
+* You have to **manually write** the return values. Guess wrong and your mock drifts from reality.
+* As your code evolves, you spend more time maintaining mocks than writing actual tests.
+* Mocks tell you nothing about what the real function actually returned — they only tell you what you *assumed* it would return.
+
+Fixed-Point records **real outputs** on the first run. No guessing, no hand-crafting fixtures. When reality changes, just `--fixedpoint=rewrite` and you're back in sync.
+
+### Summary
+
+| | VCR.py | mock | fixed-point |
+|---|--------|------|-------------|
+| Records at | HTTP layer | N/A (manual) | Function layer |
+| Setup effort | Low | High | Low |
+| Cassette noise | High (headers, cookies, etc.) | N/A | Low (args + return only) |
+| Stays in sync with reality | Fragile | Drifts over time | `rewrite` to refresh |
+
 ## Why fixed-point?
 
-* Today I want to dedicate something to my beloved wife, and I'm eager to make it meaningful.
-* I've created this open-source project called "Fixed-Point," because she is my fixed point — always cute, always kind, and forever constant no matter how chaotic the world gets.
-* In mathematics, a fixed point is a value that remains unchanged by a function. She is exactly that — the one thing in my life that is steady, warm, and unchanging.
-* The package is named "fixed-point" because, just like in math, some things converge to a beautiful, stable truth. She is mine.
-* This project is designed to bring stability to tests the same way she brings stability to my life — quietly, reliably, and with grace.
-* With this, I hope to bring a smile to her face, and maybe to yours too.
+* In math, a fixed point is a value that stays the same no matter what function you throw at it. This project does the same for your tests — run them once, pin the result, replay forever.
+* But honestly, I named it "fixed-point" because of my wife. She's my fixed point — always cute, always kind, and somehow always right. No matter how chaotic things get, she's the constant I can count on.
+* So this one's for her. And if it makes your tests less flaky along the way, that's a nice bonus too.
