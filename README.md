@@ -130,10 +130,78 @@ The serializer handles these types out of the box:
 |------|---------------|
 | `None`, `bool`, `int`, `float`, `str` | Direct values |
 | `bytes` | `{"__bytes__": "<base64>"}` |
+| `enum.Enum` | `{"__enum__": "module.EnumClass", "value": ...}` |
 | `tuple` | `{"__tuple__": [...]}` |
 | `set` | `{"__set__": [...]}` |
 | `list`, `dict` | Direct JSON arrays/objects |
 | `dataclass` | `{"__dataclass__": "module.Class", ...fields}` |
+| `pydantic.BaseModel` | `{"__pydantic__": "module.Model", "data": {...}}` |
+
+### Enum Support
+
+Python enums (including `IntEnum`, `StrEnum`, etc.) are automatically serialized:
+
+```python
+from enum import Enum
+from fixedpoint import recordable
+
+class Status(Enum):
+    PENDING = "pending"
+    ACTIVE = "active"
+    DONE = "done"
+
+@recordable
+def get_status(user_id):
+    return external_api.fetch_status(user_id)
+
+def test_status(fixedpoint):
+    status = get_status(42)
+    assert status == Status.ACTIVE  # Works perfectly
+```
+
+The cassette stores both the enum class path and the value:
+
+```yaml
+return:
+  __enum__: myapp.models.Status
+  value: active
+```
+
+### Pydantic Support
+
+Pydantic models are automatically serialized using `model_dump(mode='json')`:
+
+```python
+from pydantic import BaseModel
+from fixedpoint import recordable
+
+class User(BaseModel):
+    name: str
+    age: int
+    email: str | None = None
+
+@recordable
+def fetch_user(user_id):
+    return external_api.get_user(user_id)
+
+def test_fetch_user(fixedpoint):
+    user = fetch_user(42)
+    assert isinstance(user, User)
+    assert user.name == "Alice"
+```
+
+The cassette stores the model's data as a plain dict:
+
+```yaml
+return:
+  __pydantic__: myapp.models.User
+  data:
+    name: Alice
+    age: 30
+    email: alice@example.com
+```
+
+**Note**: Pydantic is an optional dependency. If it's not installed, fixed-point will still work with all other types.
 
 ## Error Handling
 

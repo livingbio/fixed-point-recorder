@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import base64
 import dataclasses
+import enum
 import importlib
 from typing import Any
 
 
 def serialize_value(value: Any) -> Any:
+    # Check enum before primitives since IntEnum is also int
+    if isinstance(value, enum.Enum):
+        return {
+            "__enum__": f"{type(value).__module__}.{type(value).__qualname__}",
+            "value": value.value,
+        }
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, bytes):
@@ -22,6 +29,19 @@ def serialize_value(value: Any) -> Any:
             if not isinstance(k, str):
                 _raise(f"Dict keys must be strings, got {type(k).__name__}")
         return {k: serialize_value(v) for k, v in value.items()}
+    
+    # Check for Pydantic BaseModel (optional dependency)
+    try:
+        from pydantic import BaseModel
+        if isinstance(value, BaseModel):
+            cls = type(value)
+            return {
+                "__pydantic__": f"{cls.__module__}.{cls.__qualname__}",
+                "data": serialize_value(value.model_dump(mode='json')),
+            }
+    except ImportError:
+        pass
+    
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         cls = type(value)
         data: dict[str, Any] = {
@@ -41,10 +61,23 @@ def deserialize_value(data: Any) -> Any:
     if isinstance(data, dict):
         if "__bytes__" in data:
             return base64.b64decode(data["__bytes__"])
+        if "__enum__" in data:
+            fqn = data["__enum__"]
+            module_name, _, class_name = fqn.rpartition(".")
+            mod = importlib.import_module(module_name)
+            cls = getattr(mod, class_name)
+            return cls(data["value"])
         if "__tuple__" in data:
             return tuple(deserialize_value(v) for v in data["__tuple__"])
         if "__set__" in data:
             return {deserialize_value(v) for v in data["__set__"]}
+        if "__pydantic__" in data:
+            fqn = data["__pydantic__"]
+            module_name, _, class_name = fqn.rpartition(".")
+            mod = importlib.import_module(module_name)
+            cls = getattr(mod, class_name)
+            model_data = deserialize_value(data["data"])
+            return cls(**model_data)
         if "__dataclass__" in data:
             fqn = data["__dataclass__"]
             module_name, _, class_name = fqn.rpartition(".")
