@@ -1,0 +1,67 @@
+# This workflow will upload a Python Package using Twine when a release is created
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+name: Upload Python Package
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Configure Git Credentials
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Build package
+        run: uv run python -m build
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  cd:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.x'
+      - name: Install released package
+        run: uv pip install --system ${{ github.event.repository.name }}==${{ github.event.release.tag_name }}
+      - name: Verify installation
+        run: python -c "from importlib.metadata import version; print(version('${{ github.event.repository.name }}'))"
+      - name: Deploy to staging
+        run: |
+          echo "Deploying version ${{ github.event.release.tag_name }} to staging..."
+          # Add your staging deployment commands here
+        env:
+          DEPLOY_ENV: staging
+      - name: Run smoke tests
+        run: |
+          uv run python -c "print('Running smoke tests for version ${{ github.event.release.tag_name }}...')"
+          # Add smoke tests against the deployed environment here
+      - name: Deploy to production
+        run: |
+          echo "Deploying version ${{ github.event.release.tag_name }} to production..."
+          # Add your production deployment commands here
+        env:
+          DEPLOY_ENV: production
