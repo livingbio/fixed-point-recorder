@@ -16,15 +16,96 @@ pip install pytest-fixedpoint
 
 ## Getting Started
 
-To start using fixed-point in your project, simply use the fixture in your tests:
+To start using fixed-point in your project, simply decorate the functions you want to pin down with `@recordable`:
 
 ```python
-from fixedpoint import fixed_point
+from fixedpoint import recordable
 
-def test_my_function(fixed_point):
-    result = fixed_point(my_function, "arg1", "arg2")
-    assert result == expected  # first run records, subsequent runs replay
+@recordable
+def call_external_api(query):
+    return external_service.search(query)
+
+def test_search(fixedpoint):
+    result = call_external_api("hello")
+    assert result == expected
 ```
+
+The first time you run with `--fixedpoint=record_once`, it captures real outputs. Every subsequent run replays them — no network calls, no flakiness.
+
+## Modes
+
+Fixed-Point supports 4 operational modes via the `--fixedpoint` CLI option:
+
+| Mode | Behavior |
+|------|----------|
+| `off` | Default. Plugin is disabled, functions execute normally. |
+| `record_once` | Record new calls, replay existing ones. Ideal for initial setup. |
+| `replay` | Replay only. Fails with `CassetteNotFoundError` if no recording exists. Perfect for CI. |
+| `rewrite` | Always re-execute and overwrite recordings. Use when the real behavior has changed. |
+
+```bash
+# Record cassettes for the first time
+pytest tests/ --fixedpoint=record_once
+
+# Replay from cassettes (safe for CI)
+pytest tests/ --fixedpoint=replay
+
+# Force re-record everything
+pytest tests/ --fixedpoint=rewrite
+
+# Disable (default)
+pytest tests/
+```
+
+## Cassettes
+
+Recordings are stored as human-readable YAML files in `tests/cassettes/`:
+
+```
+tests/cassettes/
+  test_module_name/
+    test_function_name.yaml
+```
+
+A cassette file looks like:
+
+```yaml
+version: 1
+calls:
+  myapp.api.fetch_user:
+    - args: [42]
+      kwargs: {}
+      return: {"name": "Alice", "age": 30}
+```
+
+Cassettes are committed to your repo so the whole team replays the same results.
+
+## Supported Types
+
+The serializer handles these types out of the box:
+
+| Type | Serialized As |
+|------|---------------|
+| `None`, `bool`, `int`, `float`, `str` | Direct values |
+| `bytes` | `{"__bytes__": "<base64>"}` |
+| `tuple` | `{"__tuple__": [...]}` |
+| `set` | `{"__set__": [...]}` |
+| `list`, `dict` | Direct JSON arrays/objects |
+| `dataclass` | `{"__dataclass__": "module.Class", ...fields}` |
+
+## Error Handling
+
+Fixed-Point raises clear errors when things don't match:
+
+| Exception | When |
+|-----------|------|
+| `CassetteNotFoundError` | No cassette file found in `replay` mode |
+| `CassetteMismatchError` | Recorded args don't match actual call, or too many calls |
+| `SerializationError` | Unsupported type passed to a `@recordable` function |
+
+When you see a `CassetteMismatchError`, the error message includes a hint:
+
+> Run with `--fixedpoint=rewrite` to re-record
 
 ## Why fixed-point?
 
