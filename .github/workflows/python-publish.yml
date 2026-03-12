@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Configure Git Credentials
         run: |
           git config user.name github-actions[bot]
@@ -46,7 +48,7 @@ jobs:
       - name: Install released package
         run: uv pip install --system ${{ github.event.repository.name }}==${{ github.event.release.tag_name }}
       - name: Verify installation
-        run: python -c "import ${{ github.event.repository.name }}; print(${{ github.event.repository.name }}.__version__)"
+        run: python -c "from importlib.metadata import version; print(version('${{ github.event.repository.name }}'))"
       - name: Deploy to staging
         run: |
           echo "Deploying version ${{ github.event.release.tag_name }} to staging..."
