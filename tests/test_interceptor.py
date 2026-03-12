@@ -103,9 +103,7 @@ class TestAsyncInterceptor:
     def test_replay_mode(self, tmp_path):
         path = tmp_path / "test.yaml"
         cassette = Cassette(path)
-        cassette.record_call(
-            "tests.sample_app.math_funcs.async_add", (3, 4), {}, 999
-        )
+        cassette.record_call("tests.sample_app.math_funcs.async_add", (3, 4), {}, 999)
         cassette.save()
 
         loaded = Cassette.load(path)
@@ -120,9 +118,7 @@ class TestAsyncInterceptor:
     def test_record_once_replays_existing(self, tmp_path):
         path = tmp_path / "test.yaml"
         cassette = Cassette(path)
-        cassette.record_call(
-            "tests.sample_app.math_funcs.async_add", (3, 4), {}, 999
-        )
+        cassette.record_call("tests.sample_app.math_funcs.async_add", (3, 4), {}, 999)
         cassette.save()
 
         loaded = Cassette.load(path)
