@@ -1,3 +1,4 @@
+from fixedpoint._cassette import Cassette
 from fixedpoint._registry import recordable
 
 __version__ = "0.1.0"
@@ -21,6 +22,7 @@ class SerializationError(FixedPointError):
 
 __all__ = [
     "recordable",
+    "Cassette",
     "FixedPointError",
     "CassetteNotFoundError",
     "CassetteMismatchError",
